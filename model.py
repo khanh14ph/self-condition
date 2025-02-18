@@ -14,7 +14,7 @@ from transformers.models.wav2vec2.modeling_wav2vec2 import (
     Wav2Vec2Model,
 )
 from transformers import Wav2Vec2ForCTC
-from ezspeech.models.conformer_asr import Conformer,Conformer_self_condition,Conformer_self_condition_phoneme
+from ezspeech.models.conformer_asr import Conformer
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter(config.checkpoint_dir+"/detail")
 

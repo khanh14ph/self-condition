@@ -1,0 +1,3 @@
+nguyenvulebinh/wav2vec2-base-vietnamese-250h|tensor(0.1068)
+tensor(0.1068)
+tensor(0.1332)

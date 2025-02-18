@@ -8,10 +8,8 @@ from datasets import load_dataset
 from dataclasses import dataclass
 from transformers import Trainer
 
-from model_hubert import (
-    HubertForCTCSelfCondBaseline,HubertForCTCSelfCondPhoneme
+from model_hubert import HubertForCTCSelfCondPhoneme
 
-)
 from transformers import TrainingArguments
 # from transformers import Wav2Vec2ForCTC
 from transformers import Wav2Vec2Processor
@@ -38,13 +36,20 @@ train_dataset = load_dataset(
     cache_dir=config.cache_dir,
     sep="\t",
 )
+val_dataset = load_dataset(
+    "csv",
+    data_files=config.val_data,
+    split="train",
+    cache_dir=config.cache_dir,
+    sep="\t",
+)
+language="en"
+train_dataset=train_dataset.filter(lambda x: x["lan_id"]==language)
+val_dataset=val_dataset.filter(lambda x: x["lan_id"]==language)
 # random_indices = [i for i in range(1000)]
 # train_dataset = train_dataset.select(random_indices)
 # train_dataset = train_dataset.filter(lambda example: example["is_groundtruth"] == True)
 print("LEN: ", len(train_dataset))
-chars_to_ignore_regex = (
-    '[\,\̀\#\̃\_\̣\=\$\&\̉\?\̀\(\)\+\/\_\'"\{\}\<\>\|\`\~\*\&\^\@\.\!\́\-\;\:"\“\%\‘\”\�]'
-)
 
 tokenizer = Wav2Vec2CTCTokenizer(
     config.vocab_char,
@@ -105,6 +110,10 @@ def speech_file_to_array_fn(batch):
 func_suffix = ""
 
 train_dataset = train_dataset.map(
+    speech_file_to_array_fn,
+    num_proc=8,
+)
+val_dataset = val_dataset.map(
     speech_file_to_array_fn,
     num_proc=8,
 )
@@ -172,9 +181,7 @@ class DataCollatorCTCWithPadding:
 
 
 data_collator = DataCollatorCTCWithPadding(processor=processor,processor_phoneme=processor_phoneme, padding=True)
-
-# wer_metric = load_metric("wer")
-
+from jiwer import wer
 
 def compute_metrics(pred):
     pred_logits = pred.predictions
@@ -188,7 +195,7 @@ def compute_metrics(pred):
     label_str = ["im lặng" if label == "" else label for label in label_str]
     pred_str = ["im lặng" if pred == "" else pred for pred in pred_str]
 
-    wer = wer_metric.compute(predictions=pred_str, references=label_str)
+    wer = wer.compute(label_str,pred_str)
 
     return {"wer": wer}
 
@@ -201,18 +208,20 @@ model = HubertForCTCSelfCondPhoneme.from_pretrained(
     final_dropout=0.1,
     mask_time_prob=0.05,
     layerdrop=0.1,
+
     ctc_loss_reduction="mean",
     ctc_zero_infinity=True,
     pad_token_id=processor.tokenizer.pad_token_id,
     vocab_size=len(processor.tokenizer),
     phoneme_vocab_size=len(processor_phoneme.tokenizer),
-    inter_layer=[3,6,9],
-    phoneme_inter_layer=[3]
+    inter_layer=[],
+    phoneme_inter_layer=[],
+    # ignore_mismatched_sizes=True
 )
 print("Model chosen:", type(model))
 
 model.freeze_feature_extractor()
-model.freeze_base_layers()
+# model.freeze_base_layers()
 training_args = TrainingArguments(
     output_dir=config.checkpoint_dir,
     group_by_length=False,
@@ -224,18 +233,19 @@ training_args = TrainingArguments(
     num_train_epochs=config.num_epochs,
     ignore_data_skip=False,
     save_steps=2000,
-    #   eval_steps=200000000000000000,
+    # evaluation_strategy="steps",
+    #   eval_steps=2000,
     logging_steps=10,
     save_safetensors=False,
     #   evaluation_strategy="epoch",
     dataloader_num_workers=6,
     learning_rate=config.learning_rate,
-    warmup_steps=1000,
+    warmup_steps=10,
     #   label_smoothing_factor=0.1,
     save_total_limit=5,
     #   eval_accumulation_steps=1,
     report_to="tensorboard",
-    #   load_best_model_at_end=True
+    # load_best_model_at_end=True
 )
 
 trainer = Trainer(
@@ -244,6 +254,7 @@ trainer = Trainer(
     args=training_args,
     compute_metrics=compute_metrics,
     train_dataset=train_dataset,
+    # eval_dataset=val_dataset,
     tokenizer=processor.feature_extractor,
     # callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
 )

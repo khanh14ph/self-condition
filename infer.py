@@ -7,10 +7,11 @@ from transformers import (
     Wav2Vec2Processor,
     Wav2Vec2CTCTokenizer,
     Wav2Vec2FeatureExtractor,
+    HubertForCTC
 )
 from model import Wav2Vec2ForCTCSelfCond,Wav2Vec2ForCTCSelfCondBaseline,Wav2Vec2ForCTCSelfCondPhoneme
 
-from model_hubert import HubertForCTCSelfCond,HubertForCTCSelfCondBaseline,HubertForCTCSelfCondPhoneme
+from model_hubert import HubertForCTCSelfCondPhoneme,HubertForCTCMultitask,HubertForCTCSelfCondPhonemeInference
 # from model_phoneme import Wav2Vec2ForCTC
 import kenlm
 from pyctcdecode import build_ctcdecoder
@@ -22,10 +23,10 @@ import os
       
 device = "cuda"
 from glob import glob
-final_checkpoint="/home4/khanhnd/self-condition/checkpoint_small/hubert_369_3_0.8/checkpoint-174000"
-
+final_checkpoint="/home4/khanhnd/self-condition/checkpoint_small/hubert_2,4,6,8,10/checkpoint-316000"
 model = HubertForCTCSelfCondPhoneme.from_pretrained(final_checkpoint).eval().to(device)
 vocab_file = "/home4/khanhnd/self-condition/vocab/multilingual.json"
+# vocab_file="/home4/khanhnd/self-condition/vocab/ipa.json"
 tokenizer = Wav2Vec2CTCTokenizer(
     vocab_file,
     # "/home4/khanhnd/thesis/asr_base/vocab.json" ,
@@ -57,13 +58,15 @@ my_dict = processor.tokenizer.get_vocab()
 labels = sorted(my_dict, key=lambda k: my_dict[k]) 
 test_dataset = load_dataset(
     "csv",
-    data_files="/home4/khanhnd/self-condition/data/multi_lingual.tsv",
-    # data_files="/home4/khanhnd/vivos/test.tsv",
-    # data_files="/home4/khanhnd/self-condition/data/test.tsv",
+    # data_files="/home4/khanhnd/self-condition/data/fleur_test_vi.tsv",
+    data_files="/home4/khanhnd/vivos/test.tsv",
+    # data_files="/home4/khanhnd/self-condition/VLSP-ASR2020-testset/vlsp2020-test-task-1.tsv",
+    # data_files="/home4/khanhnd/self-condition/data/libri-test-clean.tsv",
     sep="\t",
     split="train",
     cache_dir="/home3/khanhnd/cache",
 ) 
+
 
 decoder = build_ctcdecoder(
     labels,
@@ -93,11 +96,6 @@ test_dataset1 = test_dataset.map(speech_file_to_array_fn, num_proc=8)
 
 import pandas as pd
 
-# from normalize import normalizetmu
-
-from torchmetrics.text import WordErrorRate
-
-wer = WordErrorRate()
 
 
 
@@ -111,21 +109,20 @@ def map_to_pred(batch, pool):
     length_lst=[len(i)/16000 for i in batch["speech"]]
     inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.no_grad():
-        logits = model(**inputs).logits
+        logits= model(**inputs).logits
     logits_list = logits.cpu().numpy()
 
-    # beam search
-    # res = decoder.decode_beams_batch(
-    #     logits_list=logits_list, pool=pool, beam_width=50
-    # )
-    # best_text = [i[0][0] for i in res]
+    res = decoder.decode_beams_batch(
+        logits_list=logits_list, pool=pool, beam_width=50
+    )
+    best_text = [i[0][0] for i in res]
     
     predicted_ids = torch.argmax(logits, dim=-1)
-    best_text = processor.batch_decode(predicted_ids)
-    print(best_text)
+    greedy_best_text = processor.batch_decode(predicted_ids)
     # print(best_text)
     batch["pred_text"] = best_text
-
+    # print(greedy_best_text)
+    batch["greedy_pred_text"] = greedy_best_text
     batch.pop("speech")
 
     batch.pop("sampling_rate")
@@ -134,24 +131,38 @@ def map_to_pred(batch, pool):
 
 import time
 start=time.time()
-print(test_dataset1)
 with get_context("fork").Pool(processes=16) as pool:
     result = test_dataset1.map(
-        map_to_pred, batched=True, batch_size=8, fn_kwargs={"pool": pool}
+        map_to_pred, batched=True, batch_size=1, fn_kwargs={"pool": pool}
     )
-print(time.time()-start)
 result.set_format(
     type="pandas",
-    columns=["audio_filepath", "pred_text", "transcript"],
+    columns=["audio_filepath", "pred_text","greedy_pred_text", "transcript"],
 )
 
 # name = final_checkpoint.split("/")[-2]
-save_path = f"temp.csv"
-result.to_csv(save_path, index=False, sep="|")
+save_path = f"result/temp.tsv"
+result.to_csv(save_path, index=False, sep="\t")
 
-df = pd.read_csv(save_path, sep="|")
+
+
+df = pd.read_csv(save_path, sep="\t")
 # df = df[["audio_path", "pred_text", "transcription", "score"]]
 
 df = df.fillna("")
+def get_wer(x,y):
+    
+    s=[]
+    for i,j in zip(x,y):
+        i=i.replace("\"","")
+        j=j.replace("\"","")
+        if i=="":
+            i="<unk>"
+        if j=="":
+            j="<unk>"
+        s.append(wer(i,j))
+    return sum(s)/len(s)
 
-print(wer(list(df["pred_text"]), list(df["transcript"])))
+print(get_wer(list(df["transcript"]), list(df["pred_text"])))
+
+print(get_wer(list(df["transcript"]), list(df["greedy_pred_text"])))
