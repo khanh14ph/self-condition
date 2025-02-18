@@ -43,7 +43,7 @@ val_dataset = load_dataset(
     cache_dir=config.cache_dir,
     sep="\t",
 )
-language="en"
+language="vi"
 train_dataset=train_dataset.filter(lambda x: x["lan_id"]==language)
 val_dataset=val_dataset.filter(lambda x: x["lan_id"]==language)
 # random_indices = [i for i in range(1000)]

@@ -9,7 +9,7 @@ vocab_char = "/home4/khanhnd/self-condition/vocab/multilingual.json"
 # vocab_char="/home4/khanhnd/self-condition/vocab/vocab_char.json"
 vocab_phoneme="/home4/khanhnd/self-condition/vocab/ipa.json"
 # vocab_phoneme="/home4/khanhnd/self-condition/vocab/lid.json"
-checkpoint_dir = "/home4/khanhnd/self-condition/checkpoint_small/conformer_en_baseline"
+checkpoint_dir = "/home4/khanhnd/self-condition/checkpoint_small/conformer_vi_baseline"
 # training args
 num_epochs = 30
 batch_size = 4
