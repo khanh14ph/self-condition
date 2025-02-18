@@ -11,7 +11,7 @@ from transformers import (
 )
 from model import Wav2Vec2ForCTCSelfCond,Wav2Vec2ForCTCSelfCondBaseline,Wav2Vec2ForCTCSelfCondPhoneme
 
-from model_hubert import HubertForCTCSelfCondPhoneme,HubertForCTCMultitask,HubertForCTCSelfCondPhonemeInference
+from model_hubert import HubertForCTCSelfCondPhoneme
 # from model_phoneme import Wav2Vec2ForCTC
 import kenlm
 from pyctcdecode import build_ctcdecoder
@@ -23,7 +23,7 @@ import os
       
 device = "cuda"
 from glob import glob
-final_checkpoint="/home4/khanhnd/self-condition/checkpoint_small/hubert_2,4,6,8,10/checkpoint-316000"
+final_checkpoint="/home4/khanhnd/self-condition/checkpoint_small/conformer_en_baseline/checkpoint-2000"
 model = HubertForCTCSelfCondPhoneme.from_pretrained(final_checkpoint).eval().to(device)
 vocab_file = "/home4/khanhnd/self-condition/vocab/multilingual.json"
 # vocab_file="/home4/khanhnd/self-condition/vocab/ipa.json"
@@ -119,7 +119,7 @@ def map_to_pred(batch, pool):
     
     predicted_ids = torch.argmax(logits, dim=-1)
     greedy_best_text = processor.batch_decode(predicted_ids)
-    # print(best_text)
+    print(best_text)
     batch["pred_text"] = best_text
     # print(greedy_best_text)
     batch["greedy_pred_text"] = greedy_best_text

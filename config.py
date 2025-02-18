@@ -7,9 +7,9 @@ val_data="data/valset_bilingual.tsv"
 # training_data="/home4/khanhnd/self-condition/data/libri10h_phoneme.tsv"
 vocab_char = "/home4/khanhnd/self-condition/vocab/multilingual.json"
 # vocab_char="/home4/khanhnd/self-condition/vocab/vocab_char.json"
-vocab_phoneme="/home4/khanhnd/self-condition/vocab/ipa.json"
+vocab_phoneme="/home4/khanhnd/self-condition/vocab/ipa_large.json"
 # vocab_phoneme="/home4/khanhnd/self-condition/vocab/lid.json"
-checkpoint_dir = "/home4/khanhnd/self-condition/checkpoint_small/conformer_vi_baseline"
+checkpoint_dir = "/home4/khanhnd/self-condition/checkpoint_small/conformer_vi_2,4,6,8,10_2,4,6,8,10"
 # training args
 num_epochs = 30
 batch_size = 4

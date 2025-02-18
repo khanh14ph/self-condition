@@ -117,6 +117,7 @@ val_dataset = val_dataset.map(
     speech_file_to_array_fn,
     num_proc=8,
 )
+
 print(train_dataset)
 
 
@@ -214,8 +215,8 @@ model = HubertForCTCSelfCondPhoneme.from_pretrained(
     pad_token_id=processor.tokenizer.pad_token_id,
     vocab_size=len(processor.tokenizer),
     phoneme_vocab_size=len(processor_phoneme.tokenizer),
-    inter_layer=[],
-    phoneme_inter_layer=[],
+    inter_layer=[2,4,6,8,10],
+    phoneme_inter_layer=[2,4,6,8,10],
     # ignore_mismatched_sizes=True
 )
 print("Model chosen:", type(model))
